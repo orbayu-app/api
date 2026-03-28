@@ -11,9 +11,11 @@
         "laravel/tinker": "^3.0"
     },
     "require-dev": {
-        "roave/security-advisories": "dev-latest",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^12.5.12"
+        "phpunit/phpunit": "^12.5.12",
+        "roave/security-advisories": "dev-latest",
+        "slevomat/coding-standard": "^8.28",
+        "squizlabs/php_codesniffer": "^4.0"
     },
     "autoload": {
         "psr-4": {
@@ -43,6 +45,12 @@
         ],
         "tests:run": [
             "./vendor/bin/phpunit"
+        ],
+        "lint:check": [
+            "./vendor/bin/phpcs"
+        ],
+        "lint:fix": [
+            "./vendor/bin/phpcbf"
         ]
     },
     "config": {
@@ -50,6 +58,7 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": false,
             "php-http/discovery": true
         }
     },
