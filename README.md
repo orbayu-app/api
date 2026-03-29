@@ -1,5 +1,7 @@
 ## Orbayu API
 
+[![Build](https://github.com/orbayu-app/api/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/orbayu-app/api/actions/workflows/build.yml)
+
 Backend service for the Orbayu app — tides, weather and more for Asturias.
 
 Built with Laravel 13, PHP 8.4.
