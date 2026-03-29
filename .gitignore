@@ -5,4 +5,5 @@
 /.idea
 /.phpunit.cache
 /vendor
+/storage/phpstan
 /storage/phpunit

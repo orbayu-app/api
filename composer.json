@@ -11,7 +11,9 @@
         "laravel/tinker": "^3.0"
     },
     "require-dev": {
+        "larastan/larastan": "^3.9",
         "nunomaduro/collision": "^8.6",
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.5.12",
         "roave/security-advisories": "dev-latest",
         "slevomat/coding-standard": "^8.28",
@@ -43,14 +45,22 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate"
         ],
-        "tests:run": [
-            "./vendor/bin/phpunit"
+        "analyze": [
+            "./vendor/bin/phpstan analyse"
         ],
-        "lint:check": [
+        "check": [
+            "@lint",
+            "@analyze",
+            "@test"
+        ],
+        "lint": [
             "./vendor/bin/phpcs"
         ],
         "lint:fix": [
             "./vendor/bin/phpcbf"
+        ],
+        "test": [
+            "./vendor/bin/phpunit"
         ]
     },
     "config": {
