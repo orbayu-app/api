@@ -22,10 +22,14 @@ php artisan key:generate
 php artisan serve
 ```
 
-### Running tests
+### Code quality
 
 ```bash
-composer tests:run
+composer check        # run all checks (lint → analyze → test)
+composer lint         # code style (PHPCS + Slevomat)
+composer lint:fix     # auto-fix code style
+composer analyze      # static analysis (PHPStan + Larastan)
+composer test         # tests (PHPUnit)
 ```
 
 ### API endpoints
