@@ -30,8 +30,6 @@ steps:
     volumes:
       - name: docker-sock
         path: /var/run/docker.sock
-    environment:
-      <<: *env
     commands:
       - cd .infra
       - >
@@ -49,8 +47,6 @@ steps:
     volumes:
       - name: docker-sock
         path: /var/run/docker.sock
-    environment:
-      <<: *env
     commands:
       - cd .infra
       - >
@@ -66,8 +62,6 @@ steps:
     volumes:
       - name: docker-sock
         path: /var/run/docker.sock
-    environment:
-      <<: *env
     commands:
       - cd .infra
       - >
@@ -77,121 +71,48 @@ steps:
         --tag orbayu-nginx:${DRONE_COMMIT_SHA:0:7}
         --file nginx.dockerfile .
 
+  - name: deploy
+    image: docker:27.3-cli
+    depends_on: [build-php, build-nginx]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      # from secrets
+      APP_KEY:
+        from_secret: APP_KEY
+      APP_URL:
+        from_secret: APP_URL
+      EXTERNAL_NETWORK:
+        from_secret: EXTERNAL_NETWORK
+      # other env vars
+      BUILD_NUMBER: ${DRONE_COMMIT_SHA:0:7}
+      COMPOSE_PROJECT_NAME: orbayu
+      NGINX_PORT: "8080"
+    commands:
+      - cd .infra
+      - docker compose -f docker-compose.prod.yaml down || true
+      - docker compose -f docker-compose.prod.yaml up -d
 
-#  - name: test
-#    image: docker:27.3-cli
-#    volumes:
-#      - name: dockersock
-#        path: /var/run/docker.sock
-#    environment:
-#      APP_KEY:
-#        from_secret: test_app_key
-#      APP_ENV:
-#        from_secret: test_app_env
-#      APP_DEBUG:
-#        from_secret: test_app_debug
-#      DB_CONNECTION:
-#        from_secret: test_db_connection
-#      DB_DATABASE:
-#        from_secret: test_db_database
-#    commands:
-#      - >
-#        docker build --quiet --load
-#        --target test
-#        --tag reading-list-laravel:${DRONE_BUILD_NUMBER}-test
-#        --file docker/laravel/Dockerfile laravel/
-#        && echo "✓ test image built"
-#
-#      - >
-#        docker run --rm
-#        --env APP_KEY="$$APP_KEY"
-#        --env APP_ENV="$$APP_ENV"
-#        --env APP_DEBUG="$$APP_DEBUG"
-#        --env DB_CONNECTION="$$DB_CONNECTION"
-#        --env DB_DATABASE="$$DB_DATABASE"
-#        reading-list-laravel:${DRONE_BUILD_NUMBER}-test
-#        sh -c "php artisan migrate --force && composer run test"
-#        && echo "✓ tests passed"
-#
-#      - docker rmi reading-list-laravel:${DRONE_BUILD_NUMBER}-test
-#
-#  - name: build-laravel
-#    image: docker:27.3-cli
-#    depends_on: [test]
-#    volumes:
-#      - name: dockersock
-#        path: /var/run/docker.sock
-#    commands:
-#      - >
-#        docker build --quiet
-#        --load
-#        --target production
-#        --tag reading-list-laravel:${DRONE_BUILD_NUMBER}
-#        --file docker/laravel/Dockerfile laravel/
-#        && echo "✓ laravel image built"
-#
-#  - name: build-nginx
-#    image: docker:27.3-cli
-#    depends_on: [test]
-#    volumes:
-#      - name: dockersock
-#        path: /var/run/docker.sock
-#    commands:
-#      - >
-#        docker build --quiet
-#        --load
-#        --target production
-#        --tag reading-list-nginx:${DRONE_BUILD_NUMBER}
-#        --file docker/nginx/Dockerfile .
-#        && echo "✓ nginx image built"
-#
-#  - name: deploy
-#    image: docker:27.3-cli
-#    depends_on: [build-laravel, build-nginx]
-#    volumes:
-#      - name: dockersock
-#        path: /var/run/docker.sock
-#    environment:
-#      BUILD_NUMBER: ${DRONE_BUILD_NUMBER}
-#      DATA_PATH:
-#        from_secret: data_path
-#      APP_KEY:
-#        from_secret: app_key
-#      APP_ENV:
-#        from_secret: app_env
-#      APP_DEBUG:
-#        from_secret: app_debug
-#      APP_URL:
-#        from_secret: app_url
-#      DB_CONNECTION: sqlite
-#      NETWORK_NAME:
-#        from_secret: network_name
-#    commands:
-#      - docker compose -f docker-compose.prod.yaml down || true
-#      - docker compose -f docker-compose.prod.yaml up -d
-#      - docker compose -f docker-compose.prod.yaml exec -T laravel php artisan migrate --force
-#      - echo "✓ deployment completed"
-#
-#  - name: finalize
-#    image: docker:27.3-cli
-#    depends_on: [deploy]
-#    when:
-#      status: [success]
-#    volumes:
-#      - name: dockersock
-#        path: /var/run/docker.sock
-#    commands:
-#      - docker tag reading-list-laravel:${DRONE_BUILD_NUMBER} reading-list-laravel:latest
-#      - docker tag reading-list-nginx:${DRONE_BUILD_NUMBER} reading-list-nginx:latest
-#      - |
-#        docker images reading-list-laravel --format "{{.Tag}}" | grep -E '^[0-9]+$' | sort -n | head -n -2 | while read tag; do
-#          docker rmi reading-list-laravel:$tag || true
-#        done
-#      - |
-#        docker images reading-list-nginx --format "{{.Tag}}" | grep -E '^[0-9]+$' | sort -n | head -n -2 | while read tag; do
-#          docker rmi reading-list-nginx:$tag || true
-#        done
-#      - echo "✓ release finalized"
+  - name: finalize
+    image: docker:27.3-cli
+    depends_on: [deploy]
+    when:
+      status: [success]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    commands:
+      - docker tag orbayu-php:${DRONE_COMMIT_SHA:0:7} orbayu-php:latest
+      - docker tag orbayu-nginx:${DRONE_COMMIT_SHA:0:7} orbayu-nginx:latest
+      - |
+        docker images orbayu-php --format "{{.Tag}}" | grep -E '^[a-f0-9]{7}$' | tail -n +3 | while read tag; do
+          docker rmi orbayu-php:$tag || true
+        done
+      - |
+        docker images orbayu-nginx --format "{{.Tag}}" | grep -E '^[a-f0-9]{7}$' | tail -n +3 | while read tag; do
+          docker rmi orbayu-nginx:$tag || true
+        done
 
 volumes:
   - name: docker-sock
