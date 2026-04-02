@@ -8,17 +8,22 @@ trigger:
   event:
     - push
 
-environment:
+_env: &env
   INFRA_VERSION: 5-deployment-setup
 
 steps:
   - name: clone-infra
     image: alpine/git:latest
+    environment:
+      <<: *env
     commands:
       - git clone https://github.com/orbayu-app/infra.git .infra
       - cd .infra && git checkout ${INFRA_VERSION} && cd ..
-      - mkdir -p .infra/project && pwd && ls -al
+      - mkdir -p .infra/project
       - find . -maxdepth 1 -not -name '.infra' -not -name '.' -exec cp -r {} .infra/project/ \;
+      - echo "✓ infra cloned and project files copied"
+      - cd .infra && pwd && ls -al
+      - cd project && pwd && ls -al
 
 #  - name: test
 #    image: docker:27.3-cli
