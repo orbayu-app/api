@@ -1,0 +1,121 @@
+kind: pipeline
+type: docker
+name: default
+
+trigger:
+  branch:
+    - master
+  event:
+    - push
+
+_env: &env
+  INFRA_VERSION: v0.1.0
+
+steps:
+  - name: clone-infra
+    image: alpine/git:latest
+    depends_on: []
+    environment:
+      <<: *env
+    commands:
+      - git clone https://github.com/orbayu-app/infra.git .infra
+      - cd .infra && git checkout $INFRA_VERSION && cd ..
+      - mkdir -p .infra/project
+      # copy all git-tracked files to .infra/project
+      - git ls-files -z | xargs -0 cp --parents -t .infra/project/
+
+  - name: test
+    image: docker:27.3-cli
+    depends_on: [clone-infra]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target test
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-php:${DRONE_COMMIT_SHA:0:7}-test
+        --file php.dockerfile .
+      - docker run --rm orbayu-php:${DRONE_COMMIT_SHA:0:7}-test composer check
+      - docker rmi orbayu-php:${DRONE_COMMIT_SHA:0:7}-test
+
+  - name: build-php
+    image: docker:27.3-cli
+    depends_on: [test]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target production
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-php:${DRONE_COMMIT_SHA:0:7}
+        --file php.dockerfile .
+
+  - name: build-nginx
+    image: docker:27.3-cli
+    depends_on: [test]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target production
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-nginx:${DRONE_COMMIT_SHA:0:7}
+        --file nginx.dockerfile .
+
+  - name: deploy
+    image: docker:27.3-cli
+    depends_on: [build-php, build-nginx]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      # from secrets
+      APP_KEY:
+        from_secret: APP_KEY
+      APP_URL:
+        from_secret: APP_URL
+      EXTERNAL_NETWORK:
+        from_secret: EXTERNAL_NETWORK
+      # other env vars
+      BUILD_NUMBER: ${DRONE_COMMIT_SHA:0:7}
+      COMPOSE_PROJECT_NAME: orbayu
+    commands:
+      - cd .infra
+      - docker compose -f docker-compose.prod.yaml down || true
+      - docker compose -f docker-compose.prod.yaml up -d --remove-orphans
+
+  - name: finalize
+    image: docker:27.3-cli
+    depends_on: [deploy]
+    when:
+      status: [success]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    commands:
+      - docker tag orbayu-php:${DRONE_COMMIT_SHA:0:7} orbayu-php:latest
+      - docker tag orbayu-nginx:${DRONE_COMMIT_SHA:0:7} orbayu-nginx:latest
+      - |
+        docker images orbayu-php --format "{{.Tag}}" | grep -E '^[a-f0-9]{7}$' | tail -n +3 | while read tag; do
+          docker rmi orbayu-php:$tag || true
+        done
+      - |
+        docker images orbayu-nginx --format "{{.Tag}}" | grep -E '^[a-f0-9]{7}$' | tail -n +3 | while read tag; do
+          docker rmi orbayu-nginx:$tag || true
+        done
+
+volumes:
+  - name: docker-sock
+    # we need this to use host docker inside pipeline
+    # e.g. when building new image or modifying tags
+    host:
+      path: /var/run/docker.sock
