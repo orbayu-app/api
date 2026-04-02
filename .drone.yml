@@ -38,9 +38,44 @@ steps:
         docker build --quiet --load
         --target test
         --build-arg PROJECT_PATH=./project
-        --tag orbayu-php:${DRONE_COMMIT_SHA:0:8}-test
+        --tag orbayu-php:${DRONE_COMMIT_SHA:0:7}-test
         --file php.dockerfile .
-      - docker run --rm orbayu-php:${DRONE_COMMIT_SHA:0:8}-test composer check
+      - docker run --rm orbayu-php:${DRONE_COMMIT_SHA:0:7}-test composer check
+      - docker rmi orbayu-php:${DRONE_COMMIT_SHA:0:7}-test
+
+  - name: build-php
+    image: docker:27.3-cli
+    depends_on: [test]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      <<: *env
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target production
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-php:${DRONE_COMMIT_SHA:0:7}
+        --file php.dockerfile .
+
+  - name: build-nginx
+    image: docker:27.3-cli
+    depends_on: [test]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      <<: *env
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target production
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-nginx:${DRONE_COMMIT_SHA:0:7}
+        --file nginx.dockerfile .
 
 
 #  - name: test
