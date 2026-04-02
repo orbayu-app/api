@@ -14,6 +14,7 @@ _env: &env
 steps:
   - name: clone-infra
     image: alpine/git:latest
+    depends_on: []
     environment:
       <<: *env
     commands:
@@ -22,9 +23,25 @@ steps:
       - mkdir -p .infra/project
       # copy all files except .infra itself to .infra/project
       - find . -maxdepth 1 -not -name '.infra' -not -name '.' -exec cp -r {} .infra/project/ \;
-      - echo "✓ infra cloned and project files copied"
-      - cd .infra && pwd && ls -al
-      - cd project && pwd && ls -al
+
+  - name: test
+    image: docker:27.3-cli
+    depends_on: [clone-infra]
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      <<: *env
+    commands:
+      - cd .infra
+      - >
+        docker build --quiet --load
+        --target test
+        --build-arg PROJECT_PATH=./project
+        --tag orbayu-php:${DRONE_COMMIT_SHA:0:8}-test
+        --file php.dockerfile .
+      - docker run --rm orbayu-php:${DRONE_COMMIT_SHA:0:8}-test composer check
+
 
 #  - name: test
 #    image: docker:27.3-cli
