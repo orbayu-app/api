@@ -18,8 +18,9 @@ steps:
       <<: *env
     commands:
       - git clone https://github.com/orbayu-app/infra.git .infra
-      - cd .infra && git checkout ${INFRA_VERSION} && cd ..
+      - cd .infra && git checkout $INFRA_VERSION && cd ..
       - mkdir -p .infra/project
+      # copy all files except .infra itself to .infra/project
       - find . -maxdepth 1 -not -name '.infra' -not -name '.' -exec cp -r {} .infra/project/ \;
       - echo "✓ infra cloned and project files copied"
       - cd .infra && pwd && ls -al
