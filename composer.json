@@ -46,7 +46,7 @@
             "@php artisan key:generate"
         ],
         "analyze": [
-            "./vendor/bin/phpstan analyse"
+            "./vendor/bin/phpstan analyse --memory-limit=1G"
         ],
         "check": [
             "@lint",
