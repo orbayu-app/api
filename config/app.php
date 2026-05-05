@@ -125,4 +125,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'commit_hash' => env('APP_COMMIT_HASH', 'unknown'),
+
 ];

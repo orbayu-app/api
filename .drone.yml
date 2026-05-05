@@ -9,7 +9,7 @@ trigger:
     - push
 
 _env: &env
-  INFRA_VERSION: v0.1.0
+  INFRA_VERSION: v0.1.1
 
 steps:
   - name: clone-infra

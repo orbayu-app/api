@@ -13,6 +13,7 @@ class HealthController extends Controller
     {
         return response()->json([
             'status' => 'ok',
+            'commit_hash' => config('app.commit_hash'),
         ]);
     }
 }
